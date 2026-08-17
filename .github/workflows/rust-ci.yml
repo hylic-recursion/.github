@@ -1,0 +1,45 @@
+name: rust-ci
+
+# The shared CI for every hylic crate, called by each repository's own ci.yml.
+# It runs what a development workspace cannot run for itself: the crate as a
+# standalone checkout, resolving its siblings from crates.io rather than
+# through the workspace's `[patch.crates-io]`.
+#
+# Formatting is not checked here. `rustfmt.toml` lives in the development
+# workspace, a standalone checkout has no copy of it, and a `cargo fmt --check`
+# without the config checks a policy nobody adopted.
+
+on:
+  workflow_call:
+    inputs:
+      test:
+        description: The test commands, one per line. Empty runs no test job.
+        type: string
+        default: ''
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: check + clippy + doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --all-targets
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo doc --no-deps --document-private-items
+
+  test:
+    name: tests
+    if: inputs.test != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: ${{ inputs.test }}
